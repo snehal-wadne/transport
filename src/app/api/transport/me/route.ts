@@ -1,13 +1,18 @@
 // =============================================================================
-// GET /api/transport/me — Returns the authenticated student's own registration
-// Security Requirement:
-// "The backend must identify the student from the authenticated session.
-// Prefer: GET /transport/me"
+// /api/transport/me — Authenticated Student's Own Transportation Endpoint
+//
+// GET: Returns authenticated student's own record
+// PATCH: Updates commuting details (Route / Pickup Point) for authenticated student
+//
+// CRITICAL ACCESS CONTROL:
+// - Resolves student strictly from server session (requireAuth)
+// - Never allows querying by studentId
 // =============================================================================
 
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { getMyRegistration } from "@/lib/data";
+import { getMyRegistration, updateStudentRegistration } from "@/lib/data";
+import { transportDetailsSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
@@ -33,6 +38,48 @@ export async function GET() {
         error: "401 Unauthorized: Session required.",
       },
       { status: 401 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const student = await requireAuth();
+    const body = await request.json();
+
+    const parsed = transportDetailsSchema.safeParse({
+      routeId: body.routeId,
+      pickupPointId: body.pickupPointId,
+      transportationType: body.transportationType,
+      vehicleNumber: body.vehicleNumber,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Validation failed for updated transport details.",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const updated = updateStudentRegistration(student.studentId, parsed.data);
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: "Transportation details updated successfully.",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Update failed";
+    return NextResponse.json(
+      {
+        success: false,
+        error: message,
+      },
+      { status: 400 }
     );
   }
 }

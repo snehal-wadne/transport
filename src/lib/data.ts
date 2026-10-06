@@ -8,6 +8,8 @@ import type {
   TransportRegistrationRecord,
   TransportRegistration,
   StudentProfile,
+  RegistrationStatus,
+  PublicVerificationResponse,
 } from "./types";
 
 /** Pre-configured transport routes (Admin-managed) */
@@ -91,9 +93,38 @@ export const MOCK_ROUTES: TransportRoute[] = [
 
 /**
  * In-memory store for registrations (strictly keyed by authenticated studentId).
- * Each student can only have ONE active registration record.
+ * Pre-seeded with the authenticated student's default registration so Page 2 can be viewed immediately.
  */
 const registrationStore = new Map<string, TransportRegistrationRecord>();
+
+// Pre-seed an initial registration for Harshal Patil (PRN2024001)
+const defaultRegistrationId = "TR26-8F4K92";
+registrationStore.set("PRN2024001", {
+  id: defaultRegistrationId,
+  routeId: "route-5",
+  pickupPointId: "pp-5-2",
+  transportationType: "bus",
+  vehicleNumber: "MH-12-TR-1005",
+  status: "APPROVED", // Default to APPROVED so the active pass is showcased, but can be toggled
+  submittedAt: "2024-07-15T09:30:00.000Z",
+  approvedAt: "2024-07-16T14:15:00.000Z",
+  expiresAt: "2025-06-30T23:59:59.000Z",
+  studentName: "Harshal Patil",
+  studentPrn: "PRN2024001",
+  studentEmail: "harshal.patil@college.edu",
+  studentBranch: "Computer Engineering",
+  studentClass: "TE (Third Year)",
+  academicYear: "2024-2025",
+  paymentClaim: {
+    transactionRef: "UTR882910394821",
+    paymentMode: "UPI",
+    paymentDate: "2024-07-15",
+    claimedAmount: "18000",
+    officialStatus: "VERIFIED",
+  },
+  studentVisibleReason: undefined,
+  verificationCode: "CEC-TR-2024-SECURE-TOKEN-PRN001",
+});
 
 /** Get routes (Admin-managed list accessible for route dropdown) */
 export function getRoutes(): TransportRoute[] {
@@ -108,6 +139,18 @@ export function getMyRegistration(
 }
 
 /**
+ * Helper to generate Transportation ID format like: TR26-8F4K92
+ */
+function generateTransportId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let randomPart = "";
+  for (let i = 0; i < 6; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `TR26-${randomPart}`;
+}
+
+/**
  * Submit a new registration for the authenticated student.
  * Associates the record ONLY with the student from the server session.
  * Never trusts any frontend studentId.
@@ -118,20 +161,25 @@ export function createRegistration(
 ): TransportRegistrationRecord {
   // Prevent duplicate submissions
   if (registrationStore.has(student.studentId)) {
-    throw new Error("Duplicate submission prevented: You have already submitted a transportation registration.");
+    throw new Error(
+      "Duplicate submission prevented: You have already submitted a transportation registration."
+    );
   }
 
   // Find designated bus number from route if not provided
   const route = MOCK_ROUTES.find((r) => r.id === data.routeId);
-  const resolvedBusNumber = data.vehicleNumber?.trim() || route?.busNumber || "TBD (Bus Pool)";
+  const resolvedBusNumber =
+    data.vehicleNumber?.trim() || route?.busNumber || "TBD (Bus Pool)";
+
+  const newId = generateTransportId();
 
   const record: TransportRegistrationRecord = {
-    id: `TR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    id: newId,
     routeId: data.routeId,
     pickupPointId: data.pickupPointId,
     transportationType: data.transportationType,
     vehicleNumber: resolvedBusNumber,
-    // Server enforces PENDING status — student cannot approve themselves
+    // Server enforces PENDING status upon creation — student cannot approve themselves
     status: "PENDING",
     submittedAt: new Date().toISOString(),
     studentName: student.fullName,
@@ -139,8 +187,8 @@ export function createRegistration(
     studentEmail: student.email,
     studentBranch: student.branch,
     studentClass: student.className,
+    academicYear: student.academicYear,
     // If student provided payment claim, record it strictly as a claim
-    // Official status is ALWAYS controlled by Admin
     paymentClaim: data.paymentClaim
       ? {
           transactionRef: data.paymentClaim.transactionRef,
@@ -150,13 +198,127 @@ export function createRegistration(
           officialStatus: "PENDING_VERIFICATION",
         }
       : undefined,
+    verificationCode: `CEC-TR-2024-${newId}`,
   };
 
   registrationStore.set(student.studentId, record);
   return record;
 }
 
+/**
+ * Update commuting details for student's own registration (Edit Details).
+ * Only route, pickup point, vehicle number, and payment claim can be updated.
+ * Student identity fields remain tamper-proof.
+ */
+export function updateStudentRegistration(
+  studentId: string,
+  updates: Partial<TransportRegistration>
+): TransportRegistrationRecord {
+  const existing = registrationStore.get(studentId);
+  if (!existing) {
+    throw new Error("No active transportation registration found to update.");
+  }
+
+  const route = updates.routeId
+    ? MOCK_ROUTES.find((r) => r.id === updates.routeId)
+    : MOCK_ROUTES.find((r) => r.id === existing.routeId);
+
+  const updatedRecord: TransportRegistrationRecord = {
+    ...existing,
+    routeId: updates.routeId || existing.routeId,
+    pickupPointId: updates.pickupPointId || existing.pickupPointId,
+    transportationType: updates.transportationType || existing.transportationType,
+    vehicleNumber: updates.vehicleNumber || route?.busNumber || existing.vehicleNumber,
+    // Any update puts status back into PENDING if changes were required
+    status: existing.status === "CHANGES_REQUIRED" ? "PENDING" : existing.status,
+    studentVisibleReason: undefined,
+  };
+
+  registrationStore.set(studentId, updatedRecord);
+  return updatedRecord;
+}
+
+/**
+ * Update registration status (Used for testing and administrative actions)
+ */
+export function updateRegistrationStatus(
+  studentId: string,
+  newStatus: RegistrationStatus,
+  reason?: string
+): TransportRegistrationRecord {
+  const existing = registrationStore.get(studentId);
+  if (!existing) {
+    throw new Error("Registration not found.");
+  }
+
+  const updated: TransportRegistrationRecord = {
+    ...existing,
+    status: newStatus,
+    approvedAt: newStatus === "APPROVED" ? new Date().toISOString() : existing.approvedAt,
+    expiresAt: newStatus === "APPROVED" ? "2025-06-30T23:59:59.000Z" : existing.expiresAt,
+    studentVisibleReason: reason,
+  };
+
+  registrationStore.set(studentId, updated);
+  return updated;
+}
+
 /** Reset in-memory registration for testing if needed */
 export function resetStudentRegistration(studentId: string): void {
   registrationStore.delete(studentId);
+}
+
+/**
+ * Public Verification Service:
+ * Given a transport ID (e.g. TR26-8F4K92), returns ONLY the minimum necessary public verification details.
+ *
+ * CRITICAL PRIVACY CONTROL:
+ * NEVER exposes:
+ * - Mobile number
+ * - Personal address
+ * - Payment amount
+ * - Pending fees
+ * - Admin notes
+ * - Internal database ID
+ * - Other student information
+ */
+export function getPublicVerification(
+  transportId: string
+): PublicVerificationResponse | null {
+  for (const record of registrationStore.values()) {
+    if (record.id === transportId) {
+      const route = MOCK_ROUTES.find((r) => r.id === record.routeId);
+      const pickup = route?.pickupPoints.find((p) => p.id === record.pickupPointId);
+
+      // Mask student name for privacy, e.g. "Harshal P."
+      const nameParts = record.studentName.split(" ");
+      const maskedName =
+        nameParts.length > 1
+          ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
+          : record.studentName;
+
+      let publicStatus: "ACTIVE" | "PENDING_VERIFICATION" | "INACTIVE" | "EXPIRED" =
+        "INACTIVE";
+      if (record.status === "APPROVED") {
+        publicStatus = "ACTIVE";
+      } else if (record.status === "PENDING" || record.status === "CHANGES_REQUIRED") {
+        publicStatus = "PENDING_VERIFICATION";
+      } else if (record.status === "EXPIRED") {
+        publicStatus = "EXPIRED";
+      }
+
+      return {
+        transportationId: record.id,
+        status: publicStatus,
+        studentName: maskedName,
+        academicYear: record.academicYear,
+        collegeName: "City Engineering College",
+        routeName: route?.name || "Official College Route",
+        pickupPointName: pickup?.name || "Official Stop",
+        verifiedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  return null;
 }

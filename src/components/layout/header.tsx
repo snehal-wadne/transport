@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bus,
   LogOut,
   FileEdit,
   IdCard,
-  ShieldAlert,
   ChevronDown,
   User,
+  ClipboardPen,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -38,6 +39,8 @@ export default function Header({
   routes = [],
   onResetRegistration,
 }: HeaderProps) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [isIdCardOpen, setIsIdCardOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -82,42 +85,49 @@ export default function Header({
           </Link>
 
           {/* ── Student Dashboard Navigation (Strictly student-scoped) ───── */}
-          <nav className="hidden md:flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="flex items-center gap-2 rounded-xl bg-[#2563EB]/10 px-3.5 py-2 text-xs font-semibold text-[#2563EB] transition-colors hover:bg-[#2563EB]/15"
+          <nav className="hidden md:flex items-center gap-1.5">
+            <Link
+              href="/"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                pathname === "/"
+                  ? "bg-[#2563EB]/10 text-[#2563EB]"
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              }`}
             >
-              <Bus className="size-3.5" />
-              My Transportation
-            </button>
+              <ClipboardPen className="size-3.5" />
+              Registration
+            </Link>
 
-            <button
-              type="button"
-              onClick={() => setIsIdCardOpen(true)}
-              className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+            <Link
+              href="/id-card"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                pathname === "/id-card" || pathname === "/my-transportation"
+                  ? "bg-[#2563EB]/10 text-[#2563EB]"
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              }`}
             >
               <IdCard className="size-3.5" />
-              My ID Card
-            </button>
+              My Transportation ID
+            </Link>
 
-            <button
-              type="button"
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+            <Link
+              href="/edit"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                pathname === "/edit"
+                  ? "bg-[#2563EB]/10 text-[#2563EB]"
+                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+              }`}
             >
               <FileEdit className="size-3.5" />
               Edit Details
-            </button>
+            </Link>
           </nav>
 
           {/* ── Authenticated Student Profile & Actions ─────────────────── */}
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white p-1.5 pr-2.5 text-left transition-colors hover:bg-[#F8FAFC] focus:outline-none"
+                className="flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white p-1.5 pr-2.5 text-left transition-colors hover:bg-[#F8FAFC] focus:outline-none cursor-pointer"
                 aria-label="Student account options"
               >
                 <Avatar className="size-8 rounded-lg border border-[#E2E8F0] bg-[#2563EB]/10">
@@ -167,29 +177,35 @@ export default function Header({
 
                 {/* STRICT ACCESS CONTROL: Only student's own views. Never admin views. */}
                 <DropdownMenuItem
-                  onClick={() => {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className="cursor-pointer text-xs font-medium py-2"
+                  onClick={() => router.push("/id-card")}
+                  className="cursor-pointer text-xs font-medium py-2 flex items-center"
                 >
-                  <Bus className="mr-2 size-4 text-[#2563EB]" />
-                  My Transportation Record
+                  <IdCard className="mr-2 size-4 text-[#2563EB]" />
+                  My Transportation ID & Pass
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
-                  onClick={() => setIsIdCardOpen(true)}
-                  className="cursor-pointer text-xs font-medium py-2"
+                  onClick={() => router.push("/")}
+                  className="cursor-pointer text-xs font-medium py-2 flex items-center"
                 >
-                  <IdCard className="mr-2 size-4 text-[#2563EB]" />
-                  My Digital Transport Pass
+                  <ClipboardPen className="mr-2 size-4 text-[#2563EB]" />
+                  Transportation Registration
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => router.push("/edit")}
+                  className="cursor-pointer text-xs font-medium py-2 flex items-center"
+                >
+                  <FileEdit className="mr-2 size-4 text-[#2563EB]" />
+                  Edit Commuter Details
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
                   onClick={() => setIsEditModalOpen(true)}
                   className="cursor-pointer text-xs font-medium py-2"
                 >
-                  <FileEdit className="mr-2 size-4 text-[#2563EB]" />
-                  Edit Profile / Policy
+                  <User className="mr-2 size-4 text-[#64748B]" />
+                  Protected Identity Policy
                 </DropdownMenuItem>
 
                 {onResetRegistration && registration && (
@@ -197,7 +213,7 @@ export default function Header({
                     onClick={onResetRegistration}
                     className="cursor-pointer text-xs font-medium py-2 text-[#0284C7] focus:text-[#0284C7]"
                   >
-                    <User className="mr-2 size-4" />
+                    <Bus className="mr-2 size-4" />
                     Reset Registration (Demo)
                   </DropdownMenuItem>
                 )}
@@ -219,34 +235,41 @@ export default function Header({
         {/* ── Mobile Navigation Bar ────────────────────────────────────── */}
         <div className="md:hidden border-t border-[#E2E8F0] bg-[#FFFFFF] px-4 py-2">
           <div className="grid grid-cols-4 gap-1 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold text-[#2563EB] bg-[#2563EB]/10"
+            <Link
+              href="/"
+              className={`flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                pathname === "/"
+                  ? "text-[#2563EB] bg-[#2563EB]/10"
+                  : "text-[#64748B] hover:text-[#0F172A]"
+              }`}
             >
-              <Bus className="size-4" />
-              <span>Transport</span>
-            </button>
+              <ClipboardPen className="size-4" />
+              <span>Register</span>
+            </Link>
 
-            <button
-              type="button"
-              onClick={() => setIsIdCardOpen(true)}
-              className="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold text-[#64748B] hover:text-[#0F172A]"
+            <Link
+              href="/id-card"
+              className={`flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                pathname === "/id-card" || pathname === "/my-transportation"
+                  ? "text-[#2563EB] bg-[#2563EB]/10"
+                  : "text-[#64748B] hover:text-[#0F172A]"
+              }`}
             >
               <IdCard className="size-4" />
-              <span>ID Card</span>
-            </button>
+              <span>My Pass</span>
+            </Link>
 
-            <button
-              type="button"
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold text-[#64748B] hover:text-[#0F172A]"
+            <Link
+              href="/edit"
+              className={`flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                pathname === "/edit"
+                  ? "text-[#2563EB] bg-[#2563EB]/10"
+                  : "text-[#64748B] hover:text-[#0F172A]"
+              }`}
             >
               <FileEdit className="size-4" />
               <span>Edit</span>
-            </button>
+            </Link>
 
             <button
               type="button"

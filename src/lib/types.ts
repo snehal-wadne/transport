@@ -39,14 +39,30 @@ export interface PickupPoint {
 /** Transportation type options */
 export type TransportationType = "bus" | "van" | "shuttle";
 
-/** Registration status — only Admin can change from PENDING */
-export type RegistrationStatus = "PENDING" | "APPROVED" | "REJECTED";
+/**
+ * Registration status — strictly controlled by Transportation Administration
+ * Possible statuses:
+ * - PENDING: Under administrative verification
+ * - APPROVED: Active and valid transportation pass
+ * - CHANGES_REQUIRED: Student needs to update specific commuting details
+ * - REJECTED: Registration declined with student-visible reason if permitted
+ * - EXPIRED: Pass validity expired for current term
+ */
+export type RegistrationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "CHANGES_REQUIRED"
+  | "REJECTED"
+  | "EXPIRED";
 
 /** Payment modes allowed for student fee deposit claims */
 export type PaymentMode = "UPI" | "NET_BANKING" | "CHALLAN" | "DEMAND_DRAFT";
 
 /** Payment status — official status is strictly administered by Admin */
-export type OfficialPaymentStatus = "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
+export type OfficialPaymentStatus =
+  | "PENDING_VERIFICATION"
+  | "VERIFIED"
+  | "REJECTED";
 
 /** Student-submitted payment claim (Claim/request only, never self-approved) */
 export interface PaymentClaim {
@@ -71,21 +87,28 @@ export interface TransportRegistration {
   };
 }
 
-/** Full registration record (returned from server after submission) */
+/** Full registration record (returned from server after session resolution) */
 export interface TransportRegistrationRecord {
-  id: string;
+  id: string; // e.g. TR26-8F4K92
   routeId: string;
   pickupPointId: string;
   transportationType: TransportationType;
   vehicleNumber?: string;
   status: RegistrationStatus;
   submittedAt: string;
+  approvedAt?: string;
+  expiresAt?: string;
   studentName: string;
   studentPrn: string;
   studentEmail: string;
   studentBranch: string;
   studentClass: string;
+  academicYear: string;
   paymentClaim?: PaymentClaim;
+  /** Only visible to student if explicitly flagged by backend */
+  studentVisibleReason?: string;
+  /** Secure verification token for QR code */
+  verificationCode?: string;
 }
 
 /** Standard API response wrapper */
@@ -96,17 +119,16 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-/** Registration status check response */
-export interface RegistrationStatusResponse {
-  hasRegistered: boolean;
-  registration?: {
-    id: string;
-    status: RegistrationStatus;
-    submittedAt: string;
-    paymentStatus: OfficialPaymentStatus;
-    routeId: string;
-    pickupPointId: string;
-  };
+/** Public verification response (minimal data only, no private phone/address/payment) */
+export interface PublicVerificationResponse {
+  transportationId: string;
+  status: "ACTIVE" | "PENDING_VERIFICATION" | "INACTIVE" | "EXPIRED";
+  studentName: string; // e.g. "Harshal P."
+  academicYear: string;
+  collegeName: string;
+  routeName: string;
+  pickupPointName: string;
+  verifiedAt: string;
 }
 
 /** Navigation item for student dashboard */
