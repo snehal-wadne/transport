@@ -1,0 +1,177 @@
+// =============================================================================
+// Prisma Schema for Student Transportation Management System
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUIRED
+  EXPIRED
+}
+
+enum TransportationType {
+  BUS
+  VAN
+  SHUTTLE
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+enum PaymentMode {
+  UPI
+  NET_BANKING
+  CHALLAN
+  DEMAND_DRAFT
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STUDENT)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  student      Student?
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Student {
+  id           String                 @id @default(uuid())
+  userId       String                 @unique
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId    String                 @unique // PRN
+  fullName     String
+  email        String                 @unique
+  mobile       String
+  className    String                 @map("class")
+  branch       String
+  academicYear String
+  photoUrl     String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  registration TransportRegistration?
+  payment      Payment?
+
+  @@index([studentId])
+  @@map("students")
+}
+
+model Route {
+  id           String                 @id @default(uuid())
+  name         String
+  routeCode    String                 @unique
+  description  String?
+  busNumber    String?
+  driverName   String?
+  driverContact String?
+  active       Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  pickupPoints PickupPoint[]
+  registrations TransportRegistration[]
+
+  @@map("routes")
+}
+
+model PickupPoint {
+  id            String                 @id @default(uuid())
+  routeId       String
+  route         Route                  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  name          String
+  sequence      Int                    @default(1)
+  landmark      String?
+  estimatedTime String?
+  active        Boolean                @default(true)
+  registrations TransportRegistration[]
+
+  @@index([routeId])
+  @@map("pickup_points")
+}
+
+model TransportRegistration {
+  id                 String             @id @default(uuid())
+  studentId          String             @unique
+  student            Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  transportationId   String             @unique // Format: TR26-8F4K92 (Publicly safe token)
+  routeId            String
+  route              Route              @relation(fields: [routeId], references: [id])
+  pickupPointId      String
+  pickupPoint        PickupPoint        @relation(fields: [pickupPointId], references: [id])
+  transportationType TransportationType @default(BUS)
+  vehicleNumber      String?
+  status             RegistrationStatus @default(PENDING)
+  adminNote          String?
+  submittedAt        DateTime           @default(now())
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([transportationId])
+  @@index([status])
+  @@map("transport_registrations")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  studentId       String        @unique
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  paidAmount      Decimal       @default(0.00) @db.Decimal(10, 2)
+  pendingAmount   Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  paymentMode     PaymentMode?
+  transactionRef  String?
+  lastPaymentDate DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action     String   // e.g., ADMIN_APPROVED_REGISTRATION, ADMIN_REJECTED_REGISTRATION
+  entityType String   // e.g., TransportRegistration, Payment, Route
+  entityId   String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model TransportationVerification {
+  id               String   @id @default(uuid())
+  transportationId String
+  verifiedAt       DateTime @default(now())
+  ipAddress        String?
+
+  @@index([transportationId])
+  @@map("transportation_verifications")
+}
