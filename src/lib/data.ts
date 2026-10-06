@@ -229,8 +229,10 @@ export function updateStudentRegistration(
     pickupPointId: updates.pickupPointId || existing.pickupPointId,
     transportationType: updates.transportationType || existing.transportationType,
     vehicleNumber: updates.vehicleNumber || route?.busNumber || existing.vehicleNumber,
-    // Any update puts status back into PENDING if changes were required
-    status: existing.status === "CHANGES_REQUIRED" ? "PENDING" : existing.status,
+    // CRITICAL WORKFLOW COMPLIANCE:
+    // Changing commuting route/pickup point invalidates previous approval.
+    // Must be set back to PENDING for admin verification. Student cannot self-approve.
+    status: "PENDING",
     studentVisibleReason: undefined,
   };
 
