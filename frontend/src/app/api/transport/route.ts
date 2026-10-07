@@ -13,14 +13,24 @@
 // =============================================================================
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
-import { createRegistration, getMyRegistration, resetStudentRegistration } from "@/lib/data";
+import { getAuthenticatedStudent, requireAuth } from "@/lib/auth";
+import { createRegistration, getMyRegistration, resetStudentRegistration, saveCustomStudent } from "@/lib/data";
 import { transportDetailsSchema, paymentClaimSchema } from "@/lib/validations";
+import type { StudentProfile } from "@/lib/types";
 
 export async function GET() {
   try {
-    const student = await requireAuth();
-    const registration = getMyRegistration(student.studentId);
+    const student = await getAuthenticatedStudent();
+    if (!student) {
+      return NextResponse.json({
+        success: true,
+        data: null,
+      });
+    }
+
+    const registration =
+      (student.studentId ? getMyRegistration(student.studentId) : null) ||
+      (student.email ? getMyRegistration(student.email) : null);
 
     return NextResponse.json({
       success: true,
@@ -36,11 +46,29 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    // 1. Authenticate & extract student from session (NOT request body)
-    const student = await requireAuth();
+    const body = await request.json();
+    const sessionStudent = await getAuthenticatedStudent();
+
+    // 1. Resolve student profile from body and session
+    const resolvedStudent: StudentProfile = {
+      fullName: body.fullName || sessionStudent?.fullName || "Student User",
+      studentId: body.studentId || sessionStudent?.studentId || "PRN" + Date.now().toString().slice(-6),
+      email: body.email || sessionStudent?.email || "student@college.local",
+      mobile: body.mobile || sessionStudent?.mobile || "",
+      academicYear: body.academicYear || sessionStudent?.academicYear || "2024-2025",
+      className: body.className || sessionStudent?.className || "Engineering",
+      branch: body.branch || sessionStudent?.branch || "Computer Engineering",
+      bloodGroup: sessionStudent?.bloodGroup || "O+",
+      emergencyContact: sessionStudent?.emergencyContact || "",
+    };
+
+    saveCustomStudent(resolvedStudent);
 
     // 2. Prevent duplicate submissions
-    const existing = getMyRegistration(student.studentId);
+    const existing =
+      (resolvedStudent.studentId ? getMyRegistration(resolvedStudent.studentId) : null) ||
+      (resolvedStudent.email ? getMyRegistration(resolvedStudent.email) : null);
+
     if (existing) {
       return NextResponse.json(
         {
@@ -50,8 +78,6 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-
-    const body = await request.json();
 
     // 3. Validate transport details
     const transportParsed = transportDetailsSchema.safeParse({
@@ -95,8 +121,8 @@ export async function POST(request: Request) {
       paymentClaimData = paymentParsed.data;
     }
 
-    // 5. Create registration associated exclusively with the authenticated student
-    const record = createRegistration(student, {
+    // 5. Create registration associated exclusively with the resolved student
+    const record = createRegistration(resolvedStudent, {
       ...transportParsed.data,
       paymentClaim: paymentClaimData,
     });
@@ -105,6 +131,7 @@ export async function POST(request: Request) {
       {
         success: true,
         data: record,
+        student: resolvedStudent,
         message: "Transportation registration submitted successfully and is waiting for admin verification.",
       },
       { status: 201 }
@@ -121,8 +148,11 @@ export async function POST(request: Request) {
 // Development/testing helper to reset registration for current student
 export async function DELETE() {
   try {
-    const student = await requireAuth();
-    resetStudentRegistration(student.studentId);
+    const student = await getAuthenticatedStudent();
+    if (student) {
+      if (student.studentId) resetStudentRegistration(student.studentId);
+      if (student.email) resetStudentRegistration(student.email);
+    }
     return NextResponse.json({
       success: true,
       message: "Registration reset for authenticated student session.",

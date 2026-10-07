@@ -380,12 +380,37 @@ export let MOCK_AUDIT_LOGS: AdminAuditLogItem[] = [
   },
 ];
 
+export const customStudentsStore = new Map<string, StudentProfile>();
+
+export function saveCustomStudent(student: StudentProfile): void {
+  if (student.studentId) {
+    customStudentsStore.set(student.studentId, student);
+  }
+  if (student.email) {
+    customStudentsStore.set(student.email.toLowerCase().trim(), student);
+  }
+}
+
+export function getCustomStudent(identifier: string): StudentProfile | null {
+  if (!identifier) return null;
+  return (
+    customStudentsStore.get(identifier) ||
+    customStudentsStore.get(identifier.toLowerCase().trim()) ||
+    null
+  );
+}
+
 export function getRoutes(): TransportRoute[] {
   return MOCK_ROUTES;
 }
 
-export function getMyRegistration(studentId: string): TransportRegistrationRecord | null {
-  return registrationStore.get(studentId) ?? null;
+export function getMyRegistration(identifier: string): TransportRegistrationRecord | null {
+  if (!identifier) return null;
+  return (
+    registrationStore.get(identifier) ||
+    registrationStore.get(identifier.toLowerCase().trim()) ||
+    null
+  );
 }
 
 function generateTransportId(): string {
@@ -401,7 +426,8 @@ export function createRegistration(
   student: StudentProfile,
   data: TransportRegistration
 ): TransportRegistrationRecord {
-  if (registrationStore.has(student.studentId)) {
+  const existing = getMyRegistration(student.studentId) || (student.email ? getMyRegistration(student.email) : null);
+  if (existing) {
     throw new Error(
       "Duplicate submission prevented: You have already submitted a transportation registration."
     );
@@ -440,6 +466,10 @@ export function createRegistration(
   };
 
   registrationStore.set(student.studentId, record);
+  if (student.email) {
+    registrationStore.set(student.email.toLowerCase().trim(), record);
+  }
+  saveCustomStudent(student);
   return record;
 }
 
@@ -447,7 +477,7 @@ export function updateStudentRegistration(
   studentId: string,
   updates: Partial<TransportRegistration>
 ): TransportRegistrationRecord {
-  const existing = registrationStore.get(studentId);
+  const existing = getMyRegistration(studentId);
   if (!existing) {
     throw new Error("No active transportation registration found to update.");
   }
@@ -466,7 +496,10 @@ export function updateStudentRegistration(
     studentVisibleReason: undefined,
   };
 
-  registrationStore.set(studentId, updatedRecord);
+  registrationStore.set(existing.studentPrn, updatedRecord);
+  if (existing.studentEmail) {
+    registrationStore.set(existing.studentEmail.toLowerCase().trim(), updatedRecord);
+  }
   return updatedRecord;
 }
 
@@ -475,7 +508,7 @@ export function updateRegistrationStatus(
   newStatus: RegistrationStatus,
   reason?: string
 ): TransportRegistrationRecord {
-  const existing = registrationStore.get(studentId);
+  const existing = getMyRegistration(studentId);
   if (!existing) {
     throw new Error("Registration not found.");
   }
@@ -488,12 +521,23 @@ export function updateRegistrationStatus(
     studentVisibleReason: reason,
   };
 
-  registrationStore.set(studentId, updated);
+  registrationStore.set(existing.studentPrn, updated);
+  if (existing.studentEmail) {
+    registrationStore.set(existing.studentEmail.toLowerCase().trim(), updated);
+  }
   return updated;
 }
 
 export function resetStudentRegistration(studentId: string): void {
+  const existing = getMyRegistration(studentId);
+  if (existing) {
+    registrationStore.delete(existing.studentPrn);
+    if (existing.studentEmail) {
+      registrationStore.delete(existing.studentEmail.toLowerCase().trim());
+    }
+  }
   registrationStore.delete(studentId);
+  registrationStore.delete(studentId.toLowerCase().trim());
 }
 
 export function getPublicVerification(

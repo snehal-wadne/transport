@@ -5,11 +5,11 @@
 // =============================================================================
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { getAuthenticatedStudent } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const student = await requireAuth();
+    const student = await getAuthenticatedStudent();
     return NextResponse.json({
       success: true,
       data: student,

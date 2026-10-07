@@ -114,23 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const parsedUser = JSON.parse(savedUserStr) as AuthUser;
         setToken(savedToken);
         setUser(parsedUser);
+        document.cookie = `transport_auth_token=${encodeURIComponent(savedToken)}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `transport_user_email=${encodeURIComponent(parsedUser.email)}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(parsedUser))}; path=/; max-age=604800; SameSite=Lax`;
       } else {
-        // Default to demo student1 so portal functions immediately for evaluation
-        const defaultProfile = DEMO_PROFILES.student1;
-        const initialUser: AuthUser = {
-          ...defaultProfile.user,
-          studentProfile: defaultProfile.profile,
-        };
-        setUser(initialUser);
-        setToken("mock-jwt-token-student1");
-        localStorage.setItem("transport_auth_token", "mock-jwt-token-student1");
-        localStorage.setItem("transport_auth_user", JSON.stringify(initialUser));
+        setUser(null);
+        setToken(null);
       }
     } catch {
-      // Fallback in case of SSR or storage exception
-      const defaultProfile = DEMO_PROFILES.student1;
-      setUser({ ...defaultProfile.user, studentProfile: defaultProfile.profile });
-      setToken("mock-jwt-token-student1");
+      setUser(null);
+      setToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -140,11 +133,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
       setIsLoading(true);
       try {
+        const trimmedEmail = email.trim().toLowerCase();
+
         // First try real backend
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: trimmedEmail, password }),
         }).catch(() => null);
 
         if (response && response.ok) {
@@ -152,9 +147,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const authToken = resData.access_token || resData.token;
           const userPayload: AuthUser = {
             id: resData.user?.id || "usr-" + Date.now(),
-            email: resData.user?.email || email,
-            role: (resData.user?.role as UserRole) || (email.includes("admin") ? "ADMIN" : "STUDENT"),
-            fullName: resData.user?.student?.fullName || (email.includes("admin") ? "Transportation Administrator" : "Student User"),
+            email: resData.user?.email || trimmedEmail,
+            role: (resData.user?.role as UserRole) || (trimmedEmail.includes("admin") ? "ADMIN" : "STUDENT"),
+            fullName: resData.user?.student?.fullName || (trimmedEmail.includes("admin") ? "Transportation Administrator" : "Student User"),
             prn: resData.user?.student?.prn,
             studentProfile: resData.user?.student
               ? {
@@ -175,37 +170,128 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userPayload);
           localStorage.setItem("transport_auth_token", authToken);
           localStorage.setItem("transport_auth_user", JSON.stringify(userPayload));
+          document.cookie = `transport_auth_token=${encodeURIComponent(authToken)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(userPayload))}; path=/; max-age=604800; SameSite=Lax`;
           setIsLoading(false);
           return { success: true };
         }
 
-        // Fallback for demo logins without requiring live PostgreSQL server
-        const isMatchedAdmin = email.toLowerCase() === "admin@college.local";
-        const matchedKey = isMatchedAdmin
-          ? "admin"
-          : email.includes("student2")
-          ? "student2"
-          : email.includes("student3")
-          ? "student3"
-          : "student1";
+        // Check predefined demo profiles
+        if (trimmedEmail === "admin@college.local" || trimmedEmail.includes("admin")) {
+          const demo = DEMO_PROFILES.admin;
+          const userObj: AuthUser = { ...demo.user, studentProfile: demo.profile };
+          setToken("mock-token-admin");
+          setUser(userObj);
+          localStorage.setItem("transport_auth_token", "mock-token-admin");
+          localStorage.setItem("transport_auth_user", JSON.stringify(userObj));
+          document.cookie = `transport_auth_token=mock-token-admin; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(userObj))}; path=/; max-age=604800; SameSite=Lax`;
+          setIsLoading(false);
+          return { success: true };
+        }
 
-        const demoProfile = DEMO_PROFILES[matchedKey];
-        if (demoProfile) {
-          const demoUser: AuthUser = {
-            ...demoProfile.user,
-            studentProfile: demoProfile.profile,
+        if (trimmedEmail === "student1@college.local") {
+          const demo = DEMO_PROFILES.student1;
+          const userObj: AuthUser = { ...demo.user, studentProfile: demo.profile };
+          setToken("mock-token-student1");
+          setUser(userObj);
+          localStorage.setItem("transport_auth_token", "mock-token-student1");
+          localStorage.setItem("transport_auth_user", JSON.stringify(userObj));
+          document.cookie = `transport_auth_token=mock-token-student1; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(userObj))}; path=/; max-age=604800; SameSite=Lax`;
+          setIsLoading(false);
+          return { success: true };
+        }
+
+        if (trimmedEmail === "student2@college.local") {
+          const demo = DEMO_PROFILES.student2;
+          const userObj: AuthUser = { ...demo.user, studentProfile: demo.profile };
+          setToken("mock-token-student2");
+          setUser(userObj);
+          localStorage.setItem("transport_auth_token", "mock-token-student2");
+          localStorage.setItem("transport_auth_user", JSON.stringify(userObj));
+          document.cookie = `transport_auth_token=mock-token-student2; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(userObj))}; path=/; max-age=604800; SameSite=Lax`;
+          setIsLoading(false);
+          return { success: true };
+        }
+
+        if (trimmedEmail === "student3@college.local") {
+          const demo = DEMO_PROFILES.student3;
+          const userObj: AuthUser = { ...demo.user, studentProfile: demo.profile };
+          setToken("mock-token-student3");
+          setUser(userObj);
+          localStorage.setItem("transport_auth_token", "mock-token-student3");
+          localStorage.setItem("transport_auth_user", JSON.stringify(userObj));
+          document.cookie = `transport_auth_token=mock-token-student3; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(userObj))}; path=/; max-age=604800; SameSite=Lax`;
+          setIsLoading(false);
+          return { success: true };
+        }
+
+        // FOR ANY OTHER EMAIL (CUSTOM STUDENT, e.g. snehal@gmail.com):
+        let savedCustomUsers: Record<string, AuthUser> = {};
+        try {
+          savedCustomUsers = JSON.parse(localStorage.getItem("transport_custom_users") || "{}");
+        } catch {}
+
+        let customUser = savedCustomUsers[trimmedEmail];
+        if (!customUser) {
+          const emailPrefix = trimmedEmail.split("@")[0];
+          const displayName =
+            emailPrefix
+              .replace(/[0-9]/g, "")
+              .split(/[._-]/)
+              .filter(Boolean)
+              .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+              .join(" ") || "New Student";
+
+          customUser = {
+            id: "usr-" + Date.now(),
+            email: trimmedEmail,
+            role: "STUDENT",
+            fullName: displayName,
+            studentProfile: {
+              fullName: "",
+              studentId: "",
+              email: trimmedEmail,
+              mobile: "",
+              academicYear: "2024-2025",
+              className: "",
+              branch: "",
+              bloodGroup: "O+",
+              emergencyContact: "",
+            },
           };
-          const mockToken = `mock-token-${matchedKey}`;
-          setToken(mockToken);
-          setUser(demoUser);
-          localStorage.setItem("transport_auth_token", mockToken);
-          localStorage.setItem("transport_auth_user", JSON.stringify(demoUser));
-          setIsLoading(false);
-          return { success: true };
+          savedCustomUsers[trimmedEmail] = customUser;
+          localStorage.setItem("transport_custom_users", JSON.stringify(savedCustomUsers));
         }
 
+        const customToken =
+          "token-custom-" +
+          btoa(
+            JSON.stringify({
+              id: customUser.id,
+              email: customUser.email,
+              fullName: customUser.fullName,
+              prn: customUser.prn,
+            })
+          );
+
+        setToken(customToken);
+        setUser(customUser);
+        localStorage.setItem("transport_auth_token", customToken);
+        localStorage.setItem("transport_auth_user", JSON.stringify(customUser));
+        document.cookie = `transport_auth_token=${encodeURIComponent(customToken)}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `transport_user_email=${encodeURIComponent(trimmedEmail)}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(customUser))}; path=/; max-age=604800; SameSite=Lax`;
         setIsLoading(false);
-        return { success: false, error: "Invalid email or password" };
+        return { success: true };
       } catch (err: any) {
         setIsLoading(false);
         return { success: false, error: err?.message || "Authentication failed" };
@@ -235,6 +321,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem("transport_auth_token", mockToken);
       localStorage.setItem("transport_auth_user", JSON.stringify(newUser));
+      document.cookie = `transport_auth_token=${encodeURIComponent(mockToken)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `transport_user_email=${encodeURIComponent(newUser.email)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(newUser))}; path=/; max-age=604800; SameSite=Lax`;
     } catch {}
   }, []);
 
@@ -244,22 +333,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.removeItem("transport_auth_token");
       localStorage.removeItem("transport_auth_user");
+      document.cookie = "transport_auth_token=; path=/; max-age=0";
+      document.cookie = "transport_user_email=; path=/; max-age=0";
+      document.cookie = "transport_user_payload=; path=/; max-age=0";
     } catch {}
   }, []);
 
   const updateStudentProfile = useCallback((profile: Partial<StudentProfile>) => {
     setUser((prev) => {
-      if (!prev || !prev.studentProfile) return prev;
+      if (!prev) return prev;
       const updated: AuthUser = {
         ...prev,
         fullName: profile.fullName || prev.fullName,
+        prn: profile.studentId || prev.prn,
         studentProfile: {
-          ...prev.studentProfile,
+          ...(prev.studentProfile || {
+            fullName: "",
+            studentId: "",
+            email: prev.email,
+            mobile: "",
+            academicYear: "2024-2025",
+            className: "",
+            branch: "",
+            bloodGroup: "O+",
+            emergencyContact: "",
+          }),
           ...profile,
         },
       };
       try {
         localStorage.setItem("transport_auth_user", JSON.stringify(updated));
+        if (updated.email) {
+          const savedCustom = JSON.parse(localStorage.getItem("transport_custom_users") || "{}");
+          savedCustom[updated.email.toLowerCase()] = updated;
+          localStorage.setItem("transport_custom_users", JSON.stringify(savedCustom));
+        }
+        document.cookie = `transport_user_email=${encodeURIComponent(updated.email)}; path=/; max-age=604800; SameSite=Lax`;
+        document.cookie = `transport_user_payload=${encodeURIComponent(JSON.stringify(updated))}; path=/; max-age=604800; SameSite=Lax`;
       } catch {}
       return updated;
     });

@@ -27,6 +27,14 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new student user' })
+  @ApiResponse({ status: 201, description: 'Student account created and authenticated' })
+  async register(@Body() body: { email: string; password?: string; fullName?: string; prn?: string }) {
+    return this.authService.register(body);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout session' })

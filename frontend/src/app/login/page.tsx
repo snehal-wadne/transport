@@ -204,10 +204,10 @@ export default function LoginPage() {
             <Card className="rounded-2xl border-[#E2E8F0] shadow-sm">
               <CardHeader className="p-6 pb-4">
                 <CardTitle className="text-xl font-bold text-[#0F172A]">
-                  Sign In to Your Account
+                  Student & Staff Portal Access
                 </CardTitle>
                 <CardDescription className="text-xs text-[#64748B]">
-                  Enter your registered institutional email and password to proceed.
+                  Enter your institutional or personal email to access the registration portal.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 pt-2 space-y-5">
@@ -221,13 +221,13 @@ export default function LoginPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#0F172A]">
-                      College Email Address
+                      College / Personal Email Address
                     </Label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#64748B]" />
                       <Input
                         type="email"
-                        placeholder="e.g. admin@college.local or student1@college.local"
+                        placeholder="e.g. snehal@gmail.com or student@college.edu"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10 text-xs rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]"
@@ -235,7 +235,7 @@ export default function LoginPage() {
                       />
                     </div>
                     <p className="text-[10px] text-[#64748B]">
-                      Students use roll email; Transport staff use administrative email.
+                      Enter your email. New students will proceed to the blank registration form to fill details and generate their Transport ID.
                     </p>
                   </div>
 
@@ -273,7 +273,7 @@ export default function LoginPage() {
                       </span>
                     ) : (
                       <span className="flex items-center gap-1.5">
-                        Sign In Securely
+                        Continue to Registration
                         <ArrowRight className="size-4" />
                       </span>
                     )}

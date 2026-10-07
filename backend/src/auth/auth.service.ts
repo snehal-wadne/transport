@@ -55,17 +55,75 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    return {
-      accessToken,
-      tokenType: 'Bearer',
-      user: {
-        id: user.id,
+      return {
+        accessToken,
+        tokenType: 'Bearer',
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          student: user.student || null,
+        },
+      };
+    }
+
+    async register(dto: { email: string; password?: string; fullName?: string; prn?: string }) {
+      const email = dto.email.toLowerCase().trim();
+      const existing = await this.prisma.user.findUnique({
+        where: { email },
+        include: {
+          student: true,
+        },
+      });
+
+      if (existing) {
+        const payload = {
+          sub: existing.id,
+          email: existing.email,
+          role: existing.role,
+        };
+        const accessToken = this.jwtService.sign(payload);
+        return {
+          accessToken,
+          tokenType: 'Bearer',
+          user: {
+            id: existing.id,
+            email: existing.email,
+            role: existing.role,
+            student: existing.student || null,
+          },
+        };
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(dto.password || 'password123', salt);
+
+      const user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          role: 'STUDENT',
+        },
+      });
+
+      const payload = {
+        sub: user.id,
         email: user.email,
         role: user.role,
-        student: user.student || null,
-      },
-    };
-  }
+      };
+      const accessToken = this.jwtService.sign(payload);
+
+      return {
+        accessToken,
+        tokenType: 'Bearer',
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          student: null,
+        },
+      };
+    }
 
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({

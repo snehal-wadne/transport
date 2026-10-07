@@ -48,6 +48,7 @@ import type {
   TransportRoute,
   TransportRegistrationRecord,
 } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
 import IdCardModal from "./id-card-modal";
 
 interface RegistrationFormProps {
@@ -62,6 +63,7 @@ export default function RegistrationForm({
   onDataLoaded,
   onRegistrationChange,
 }: RegistrationFormProps) {
+  const { user, token, updateStudentProfile } = useAuth();
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<TransportRoute | null>(null);
@@ -82,9 +84,9 @@ export default function RegistrationForm({
     defaultValues: {
       fullName: "",
       studentId: "",
-      email: "",
+      email: user?.email || "",
       mobile: "",
-      academicYear: "",
+      academicYear: "2024-2025",
       className: "",
       branch: "",
       routeId: "",
@@ -113,11 +115,15 @@ export default function RegistrationForm({
     setIsLoading(true);
     setSubmitError(null);
     try {
-      // SECURITY: Access only authenticated student endpoints. No /students/:id used.
+      const headersInit: Record<string, string> = {};
+      if (token) {
+        headersInit["Authorization"] = `Bearer ${token}`;
+      }
+
       const [studentRes, routesRes, regRes] = await Promise.all([
-        fetch("/api/students/me"),
+        fetch("/api/students/me", { headers: headersInit }),
         fetch("/api/routes"),
-        fetch("/api/transport/me"),
+        fetch("/api/transport/me", { headers: headersInit }),
       ]);
 
       const studentJson = await studentRes.json();
@@ -132,14 +138,17 @@ export default function RegistrationForm({
         currentStudent = studentJson.data as StudentProfile;
         setStudent(currentStudent);
 
-        // Pre-fill protected student information fields
-        setValue("fullName", currentStudent.fullName);
-        setValue("studentId", currentStudent.studentId);
-        setValue("email", currentStudent.email);
-        setValue("mobile", currentStudent.mobile);
-        setValue("academicYear", currentStudent.academicYear);
-        setValue("className", currentStudent.className);
-        setValue("branch", currentStudent.branch);
+        // Pre-fill student info if present
+        if (currentStudent.fullName) setValue("fullName", currentStudent.fullName);
+        if (currentStudent.studentId) setValue("studentId", currentStudent.studentId);
+        if (currentStudent.email) setValue("email", currentStudent.email);
+        else if (user?.email) setValue("email", user.email);
+        if (currentStudent.mobile) setValue("mobile", currentStudent.mobile);
+        if (currentStudent.academicYear) setValue("academicYear", currentStudent.academicYear);
+        if (currentStudent.className) setValue("className", currentStudent.className);
+        if (currentStudent.branch) setValue("branch", currentStudent.branch);
+      } else if (user?.email) {
+        setValue("email", user.email);
       }
 
       if (routesJson.success && routesJson.data) {
@@ -151,10 +160,26 @@ export default function RegistrationForm({
         currentReg = regJson.data as TransportRegistrationRecord;
         setSubmissionResult(currentReg);
         onRegistrationChangeRef.current?.(currentReg);
+      } else {
+        setSubmissionResult(null);
+        onRegistrationChangeRef.current?.(null);
       }
 
       if (currentStudent) {
         onDataLoadedRef.current?.(currentStudent, currentReg, currentRoutes);
+      } else if (user) {
+        const fallbackProfile: StudentProfile = {
+          fullName: user.fullName || "",
+          studentId: user.prn || "",
+          email: user.email,
+          mobile: "",
+          academicYear: "2024-2025",
+          className: "",
+          branch: "",
+          bloodGroup: "O+",
+          emergencyContact: "",
+        };
+        onDataLoadedRef.current?.(fallbackProfile, currentReg, currentRoutes);
       }
     } catch (err) {
       console.error("Initialization error:", err);
@@ -162,7 +187,7 @@ export default function RegistrationForm({
     } finally {
       setIsLoading(false);
     }
-  }, [setValue]);
+  }, [setValue, token, user]);
 
   useEffect(() => {
     loadInitialData();
@@ -183,18 +208,28 @@ export default function RegistrationForm({
     }
   }, [watchedRouteId, routes, setValue]);
 
-  // Submit handler — STRICT SECURITY:
-  // We do NOT send studentId in payload. Backend resolves identity from server session.
+  // Submit handler
   async function onSubmit(values: RegistrationFormValues) {
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
+      const headersInit: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headersInit["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/transport", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Notice: studentId is deliberately omitted. Identity is determined by the server session.
+        headers: headersInit,
         body: JSON.stringify({
+          fullName: values.fullName,
+          studentId: values.studentId,
+          email: values.email,
+          mobile: values.mobile,
+          academicYear: values.academicYear,
+          className: values.className,
+          branch: values.branch,
           routeId: values.routeId,
           pickupPointId: values.pickupPointId,
           transportationType: values.transportationType,
@@ -210,6 +245,19 @@ export default function RegistrationForm({
 
       if (response.ok && result.success) {
         setSubmissionResult(result.data);
+        const updatedStud: StudentProfile = result.student || {
+          fullName: values.fullName,
+          studentId: values.studentId,
+          email: values.email,
+          mobile: values.mobile,
+          academicYear: values.academicYear,
+          className: values.className,
+          branch: values.branch,
+          bloodGroup: "O+",
+          emergencyContact: "",
+        };
+        setStudent(updatedStud);
+        updateStudentProfile(updatedStud);
         if (onRegistrationChange) onRegistrationChange(result.data);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -472,14 +520,14 @@ export default function RegistrationForm({
                     Student Information
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm text-[#64748B]">
-                    Authenticated profile pre-filled from institution registrar
+                    Enter student academic and enrollment details for official ID pass issuance
                   </CardDescription>
                 </div>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs text-[#64748B]">
-                <Lock className="size-3 text-[#2563EB]" />
-                <span>Protected Identity</span>
+              <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs text-[#2563EB] font-medium">
+                <FileCheck2 className="size-3.5 text-[#2563EB]" />
+                <span>Verified Enrollment Details</span>
               </div>
             </div>
           </CardHeader>
@@ -489,124 +537,110 @@ export default function RegistrationForm({
               {/* Full Name */}
               <FormField
                 label="Full Name"
+                required
                 icon={<User className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.fullName?.message}
               >
                 <Input
                   {...register("fullName")}
-                  readOnly
-                  aria-readonly="true"
-                  placeholder="Student Full Name"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] font-medium cursor-not-allowed h-10 rounded-xl"
+                  placeholder="e.g. Snehal Wadne"
+                  className="border-[#E2E8F0] text-[#0F172A] font-medium focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* Student ID / PRN */}
               <FormField
                 label="Student ID / PRN"
+                required
                 icon={<GraduationCap className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.studentId?.message}
               >
                 <Input
                   {...register("studentId")}
-                  readOnly
-                  aria-readonly="true"
-                  placeholder="Student PRN"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] font-mono text-[#2563EB] font-bold cursor-not-allowed h-10 rounded-xl"
+                  placeholder="e.g. PRN2024099"
+                  className="border-[#E2E8F0] font-mono text-[#2563EB] font-bold focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* College Email */}
               <FormField
                 label="College Email"
+                required
                 icon={<Mail className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.email?.message}
               >
                 <Input
                   {...register("email")}
-                  readOnly
-                  aria-readonly="true"
                   type="email"
                   placeholder="name@college.edu"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] cursor-not-allowed h-10 rounded-xl"
+                  className="border-[#E2E8F0] text-[#0F172A] focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* Mobile Number */}
               <FormField
                 label="Mobile Number"
+                required
                 icon={<Phone className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.mobile?.message}
               >
                 <Input
                   {...register("mobile")}
-                  readOnly
-                  aria-readonly="true"
                   type="tel"
-                  placeholder="10-digit Mobile"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] cursor-not-allowed h-10 rounded-xl"
+                  placeholder="10-digit Mobile (e.g. 9876543210)"
+                  className="border-[#E2E8F0] text-[#0F172A] focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* Academic Year */}
               <FormField
                 label="Academic Year"
+                required
                 icon={<Calendar className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.academicYear?.message}
               >
                 <Input
                   {...register("academicYear")}
-                  readOnly
-                  aria-readonly="true"
                   placeholder="e.g. 2024-2025"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] cursor-not-allowed h-10 rounded-xl"
+                  className="border-[#E2E8F0] text-[#0F172A] focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* Class */}
               <FormField
                 label="Class"
+                required
                 icon={<BookOpen className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.className?.message}
               >
                 <Input
                   {...register("className")}
-                  readOnly
-                  aria-readonly="true"
                   placeholder="e.g. TE (Third Year)"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] cursor-not-allowed h-10 rounded-xl"
+                  className="border-[#E2E8F0] text-[#0F172A] focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
 
               {/* Branch */}
               <FormField
                 label="Branch / Department"
+                required
                 icon={<BookOpen className="size-4 text-[#64748B]" />}
-                isLocked
                 error={errors.branch?.message}
                 className="sm:col-span-2"
               >
                 <Input
                   {...register("branch")}
-                  readOnly
-                  aria-readonly="true"
                   placeholder="e.g. Computer Engineering"
-                  className="bg-[#F8FAFC] border-[#E2E8F0] text-[#0F172A] cursor-not-allowed h-10 rounded-xl"
+                  className="border-[#E2E8F0] text-[#0F172A] focus:border-[#2563EB] focus:ring-[#2563EB]/20 h-10 rounded-xl"
                 />
               </FormField>
             </div>
 
-            {/* Identity Protection Notice */}
-            <div className="flex items-start gap-2.5 rounded-xl border border-[#0284C7]/20 bg-[#0284C7]/5 p-3.5 text-xs text-[#0F172A]">
-              <Info className="size-4 text-[#0284C7] shrink-0 mt-0.5" />
+            {/* Registration Instructions Notice */}
+            <div className="flex items-start gap-2.5 rounded-xl border border-[#2563EB]/20 bg-[#2563EB]/5 p-3.5 text-xs text-[#0F172A]">
+              <Info className="size-4 text-[#2563EB] shrink-0 mt-0.5" />
               <p className="text-[#64748B] leading-relaxed">
-                <strong className="text-[#0284C7]">Identity Security:</strong> Student information is pre-filled from your authenticated college profile and cannot be modified directly. The backend uses your server session to verify ownership.
+                <strong className="text-[#2563EB]">Registration Guidance:</strong> Please enter your enrollment details accurately. Once submitted, your unique Transportation ID and Digital Pass Card will be automatically generated with these credentials.
               </p>
             </div>
           </CardContent>

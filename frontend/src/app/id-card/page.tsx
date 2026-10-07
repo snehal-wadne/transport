@@ -26,6 +26,7 @@ import TransportIdCard from "@/components/id-card/transport-id-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-context";
 import type {
   StudentProfile,
   TransportRegistrationRecord,
@@ -35,13 +36,9 @@ import type {
 
 // =============================================================================
 // Page 2: My Transportation ID
-//
-// CRITICAL ACCESS CONTROL:
-// - Fetches strictly the authenticated student's own record via /api/transport/me
-// - Never allows querying by studentId or URL parameter tampering
-// - Never exposes other students, admin queues, or internal admin notes
 // =============================================================================
 export default function MyTransportationIdPage() {
+  const { user, token } = useAuth();
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [registration, setRegistration] = useState<TransportRegistrationRecord | null>(null);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
@@ -53,10 +50,12 @@ export default function MyTransportationIdPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // SECURITY: Access only authenticated session endpoints. No student ID in query or URL.
+      const headersInit: Record<string, string> = {};
+      if (token) headersInit["Authorization"] = `Bearer ${token}`;
+
       const [studentRes, regRes, routesRes] = await Promise.all([
-        fetch("/api/students/me"),
-        fetch("/api/transport/me"),
+        fetch("/api/students/me", { headers: headersInit }),
+        fetch("/api/transport/me", { headers: headersInit }),
         fetch("/api/routes"),
       ]);
 
@@ -82,7 +81,7 @@ export default function MyTransportationIdPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     loadData();

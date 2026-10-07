@@ -42,16 +42,25 @@ export default function Header({
 }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const [isIdCardOpen, setIsIdCardOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const selectedRoute = routes.find((r) => r.id === registration?.routeId) || null;
 
-  const studentInitials = student?.fullName
-    ? student.fullName
+  const displayName =
+    student?.fullName ||
+    user?.fullName ||
+    (user?.email ? user.email.split("@")[0] : "Student Profile");
+
+  const displayEmail = student?.email || user?.email || "student@college.edu";
+  const displayPrn = student?.studentId || user?.prn || (user?.email ? "New Student" : "PRN");
+
+  const studentInitials = displayName
+    ? displayName
         .split(" ")
+        .filter(Boolean)
         .map((n) => n[0])
         .join("")
         .substring(0, 2)
@@ -139,10 +148,10 @@ export default function Header({
                 </Avatar>
                 <div className="hidden sm:block text-left leading-tight">
                   <p className="text-xs font-semibold text-[#0F172A] truncate max-w-[130px]">
-                    {student?.fullName || "Student Profile"}
+                    {displayName}
                   </p>
                   <p className="text-[10px] font-mono text-[#64748B]">
-                    {student?.studentId || "PRN"}
+                    {displayPrn}
                   </p>
                 </div>
                 <ChevronDown className="size-3.5 text-[#64748B]" />
@@ -158,18 +167,20 @@ export default function Header({
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-[#0F172A] truncate">
-                        {student?.fullName || "Authenticated Student"}
+                        {displayName}
                       </p>
                       <p className="text-xs text-[#64748B] truncate">
-                        {student?.email || "student@college.edu"}
+                        {displayEmail}
                       </p>
                       <div className="mt-1 flex items-center gap-1">
                         <span className="rounded bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#2563EB] border border-[#E2E8F0]">
-                          {student?.studentId}
+                          {displayPrn}
                         </span>
-                        <span className="text-[10px] text-[#64748B]">
-                          {student?.className}
-                        </span>
+                        {student?.className && (
+                          <span className="text-[10px] text-[#64748B]">
+                            {student.className}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

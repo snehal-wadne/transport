@@ -10,14 +10,24 @@
 // =============================================================================
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { getAuthenticatedStudent, requireAuth } from "@/lib/auth";
 import { getMyRegistration, updateStudentRegistration } from "@/lib/data";
 import { transportDetailsSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
-    const student = await requireAuth();
-    const registration = getMyRegistration(student.studentId);
+    const student = await getAuthenticatedStudent();
+    if (!student) {
+      return NextResponse.json({
+        success: true,
+        data: null,
+        message: "No active session found.",
+      });
+    }
+
+    const registration =
+      (student.studentId ? getMyRegistration(student.studentId) : null) ||
+      (student.email ? getMyRegistration(student.email) : null);
 
     if (!registration) {
       return NextResponse.json({
@@ -32,13 +42,10 @@ export async function GET() {
       data: registration,
     });
   } catch {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "401 Unauthorized: Session required.",
-      },
-      { status: 401 }
-    );
+    return NextResponse.json({
+      success: true,
+      data: null,
+    });
   }
 }
 
@@ -65,7 +72,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = updateStudentRegistration(student.studentId, parsed.data);
+    const targetKey = student.studentId || student.email;
+    const updated = updateStudentRegistration(targetKey, parsed.data);
 
     return NextResponse.json({
       success: true,

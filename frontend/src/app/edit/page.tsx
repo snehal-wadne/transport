@@ -37,6 +37,7 @@ import { Separator } from "@/components/ui/separator";
 
 import ConfirmChangesModal, { type ChangeDiffItem } from "@/components/edit/confirm-changes-modal";
 import { transportDetailsSchema } from "@/lib/validations";
+import { useAuth } from "@/lib/auth-context";
 import type {
   StudentProfile,
   TransportRegistrationRecord,
@@ -49,16 +50,10 @@ type EditFormValues = z.infer<typeof transportDetailsSchema>;
 
 // =============================================================================
 // Page 3: Edit Transportation Details
-//
-// CRITICAL SECURITY ENFORCEMENT:
-// - Student can ONLY modify their own commuting preferences (Route, Pickup, Vehicle).
-// - Student identity fields (Name, PRN, Email, Class, Branch) are strictly locked.
-// - Transportation ID, Approval Status, and Official Payment Status are strictly read-only.
-// - Backend session binds all updates via PATCH /api/transport/me.
-// - Changing commuting details invalidates prior approval and forces PENDING status.
 // =============================================================================
 export default function EditTransportationDetailsPage() {
   const router = useRouter();
+  const { user, token } = useAuth();
 
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [originalRecord, setOriginalRecord] = useState<TransportRegistrationRecord | null>(null);
@@ -101,10 +96,12 @@ export default function EditTransportationDetailsPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      // SECURITY: Access only authenticated session endpoints. No /transport/:studentId.
+      const headersInit: Record<string, string> = {};
+      if (token) headersInit["Authorization"] = `Bearer ${token}`;
+
       const [studentRes, regRes, routesRes] = await Promise.all([
-        fetch("/api/students/me"),
-        fetch("/api/transport/me"),
+        fetch("/api/students/me", { headers: headersInit }),
+        fetch("/api/transport/me", { headers: headersInit }),
         fetch("/api/routes"),
       ]);
 
@@ -138,7 +135,7 @@ export default function EditTransportationDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [reset]);
+  }, [reset, token]);
 
   useEffect(() => {
     loadData();
@@ -276,11 +273,12 @@ export default function EditTransportationDetailsPage() {
     const formValues = form.getValues();
 
     try {
-      // SECURITY: Student cannot send studentId or status in payload.
-      // Backend automatically sets status: 'PENDING' for admin verification.
+      const headersInit: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headersInit["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch("/api/transport/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: headersInit,
         body: JSON.stringify({
           routeId: formValues.routeId,
           pickupPointId: formValues.pickupPointId,
