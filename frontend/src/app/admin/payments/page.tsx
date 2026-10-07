@@ -52,7 +52,7 @@ export default function AdminPaymentsPage() {
     setIsLoading(true);
     try {
       const data = await apiClient.admin.getPayments();
-      setPayments(data);
+      setPayments(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load fee payments");
     } finally {
@@ -65,7 +65,8 @@ export default function AdminPaymentsPage() {
   }, []);
 
   const filteredPayments = useMemo(() => {
-    return payments.filter((p) => {
+    const list = Array.isArray(payments) ? payments : [];
+    return list.filter((p) => {
       const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
       const matchesSearch =
         searchTerm.trim() === "" ||
@@ -78,9 +79,10 @@ export default function AdminPaymentsPage() {
   }, [payments, statusFilter, searchTerm]);
 
   const summary = useMemo(() => {
-    const totalExpected = payments.reduce((sum, p) => sum + p.totalAmount, 0);
-    const totalCollected = payments.reduce((sum, p) => sum + p.paidAmount, 0);
-    const totalPending = payments.reduce((sum, p) => sum + p.pendingAmount, 0);
+    const list = Array.isArray(payments) ? payments : [];
+    const totalExpected = list.reduce((sum, p) => sum + p.totalAmount, 0);
+    const totalCollected = list.reduce((sum, p) => sum + p.paidAmount, 0);
+    const totalPending = list.reduce((sum, p) => sum + p.pendingAmount, 0);
     return { totalExpected, totalCollected, totalPending };
   }, [payments]);
 

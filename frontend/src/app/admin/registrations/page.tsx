@@ -63,10 +63,11 @@ export default function AdminRegistrationsPage() {
     setIsLoading(true);
     try {
       const data = await apiClient.admin.getRegistrations();
-      setRegistrations(data);
+      const list = Array.isArray(data) ? data : [];
+      setRegistrations(list);
 
       if (initialSelectedId) {
-        const found = data.find((r) => r.id === initialSelectedId);
+        const found = list.find((r) => r.id === initialSelectedId);
         if (found) {
           setSelectedItem(found);
           setIsModalOpen(true);
@@ -84,7 +85,8 @@ export default function AdminRegistrationsPage() {
   }, []);
 
   const filteredItems = useMemo(() => {
-    return registrations.filter((item) => {
+    const list = Array.isArray(registrations) ? registrations : [];
+    return list.filter((item) => {
       const matchesTab = activeTab === "ALL" || item.status === activeTab;
       const matchesSearch =
         searchTerm.trim() === "" ||
@@ -97,12 +99,13 @@ export default function AdminRegistrationsPage() {
   }, [registrations, activeTab, searchTerm]);
 
   const counts = useMemo(() => {
+    const list = Array.isArray(registrations) ? registrations : [];
     return {
-      ALL: registrations.length,
-      PENDING: registrations.filter((r) => r.status === "PENDING").length,
-      APPROVED: registrations.filter((r) => r.status === "APPROVED").length,
-      CHANGES_REQUIRED: registrations.filter((r) => r.status === "CHANGES_REQUIRED").length,
-      REJECTED: registrations.filter((r) => r.status === "REJECTED").length,
+      ALL: list.length,
+      PENDING: list.filter((r) => r.status === "PENDING").length,
+      APPROVED: list.filter((r) => r.status === "APPROVED").length,
+      CHANGES_REQUIRED: list.filter((r) => r.status === "CHANGES_REQUIRED").length,
+      REJECTED: list.filter((r) => r.status === "REJECTED").length,
     };
   }, [registrations]);
 

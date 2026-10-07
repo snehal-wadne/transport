@@ -57,8 +57,12 @@ async function request<T>(
     });
 
     if (res.ok) {
-      const data = await res.json();
-      return { data, fromLiveBackend: true };
+      const json = await res.json();
+      const unwrapped =
+        json && typeof json === "object" && "data" in json && "success" in json
+          ? json.data
+          : json;
+      return { data: unwrapped as T, fromLiveBackend: true };
     }
   } catch {
     // Backend offline / network unreachable -> fall back to local handlers
@@ -72,8 +76,10 @@ export const apiClient = {
   routes: {
     getAll: async (): Promise<TransportRoute[]> => {
       try {
-        const { data } = await request<TransportRoute[]>("/routes");
-        return data;
+        const { data } = await request<any>("/routes");
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        return getRoutes();
       } catch {
         return getRoutes();
       }
@@ -153,10 +159,12 @@ export const apiClient = {
         const query = new URLSearchParams();
         if (status) query.set("status", status);
         if (search) query.set("search", search);
-        const { data } = await request<AdminRegistrationItem[]>(
+        const { data } = await request<any>(
           `/admin/registrations?${query.toString()}`
         );
-        return data;
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        return getAdminRegistrations(status, search);
       } catch {
         return getAdminRegistrations(status, search);
       }
@@ -223,10 +231,12 @@ export const apiClient = {
         const query = new URLSearchParams();
         if (search) query.set("search", search);
         if (branch) query.set("branch", branch);
-        const { data } = await request<AdminStudentItem[]>(
+        const { data } = await request<any>(
           `/admin/students?${query.toString()}`
         );
-        return data;
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        return getAdminStudents(search, branch);
       } catch {
         return getAdminStudents(search, branch);
       }
@@ -249,8 +259,10 @@ export const apiClient = {
 
     getPayments: async (): Promise<AdminPaymentRecord[]> => {
       try {
-        const { data } = await request<AdminPaymentRecord[]>("/admin/payments");
-        return data;
+        const { data } = await request<any>("/admin/payments");
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        return getAdminPayments();
       } catch {
         return getAdminPayments();
       }
@@ -279,8 +291,10 @@ export const apiClient = {
 
     getAuditLogs: async (): Promise<AdminAuditLogItem[]> => {
       try {
-        const { data } = await request<AdminAuditLogItem[]>("/admin/audit-logs");
-        return data;
+        const { data } = await request<any>("/admin/audit-logs");
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.data)) return data.data;
+        return getAdminAuditLogs();
       } catch {
         return getAdminAuditLogs();
       }

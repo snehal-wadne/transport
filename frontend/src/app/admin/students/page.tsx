@@ -53,7 +53,7 @@ export default function AdminStudentsPage() {
     setIsLoading(true);
     try {
       const data = await apiClient.admin.getStudents();
-      setStudents(data);
+      setStudents(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load student directory");
     } finally {
@@ -66,7 +66,7 @@ export default function AdminStudentsPage() {
   }, []);
 
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
+    return (Array.isArray(students) ? students : []).filter((s) => {
       const matchesBranch = branchFilter === "ALL" || s.branch === branchFilter;
       const matchesSearch =
         searchTerm.trim() === "" ||

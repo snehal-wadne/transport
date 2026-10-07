@@ -34,7 +34,7 @@ export default function AdminAuditLogsPage() {
     setIsLoading(true);
     try {
       const data = await apiClient.admin.getAuditLogs();
-      setLogs(data);
+      setLogs(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load audit logs");
     } finally {
@@ -47,7 +47,8 @@ export default function AdminAuditLogsPage() {
   }, []);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
+    const list = Array.isArray(logs) ? logs : [];
+    return list.filter((log) => {
       const matchesAction = actionFilter === "ALL" || log.action === actionFilter;
       const matchesSearch =
         searchTerm.trim() === "" ||
@@ -59,7 +60,8 @@ export default function AdminAuditLogsPage() {
   }, [logs, actionFilter, searchTerm]);
 
   const actionTypes = useMemo(() => {
-    const set = new Set(logs.map((l) => l.action));
+    const list = Array.isArray(logs) ? logs : [];
+    const set = new Set(list.map((l) => l.action));
     return ["ALL", ...Array.from(set)];
   }, [logs]);
 

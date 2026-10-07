@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -70,6 +70,12 @@ export default function RegistrationForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+
+  const onDataLoadedRef = useRef(onDataLoaded);
+  onDataLoadedRef.current = onDataLoaded;
+
+  const onRegistrationChangeRef = useRef(onRegistrationChange);
+  onRegistrationChangeRef.current = onRegistrationChange;
 
   const form = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationFormSchema),
@@ -144,11 +150,11 @@ export default function RegistrationForm({
       if (regJson.success && regJson.data) {
         currentReg = regJson.data as TransportRegistrationRecord;
         setSubmissionResult(currentReg);
-        if (onRegistrationChange) onRegistrationChange(currentReg);
+        onRegistrationChangeRef.current?.(currentReg);
       }
 
-      if (onDataLoaded && currentStudent) {
-        onDataLoaded(currentStudent, currentReg, currentRoutes);
+      if (currentStudent) {
+        onDataLoadedRef.current?.(currentStudent, currentReg, currentRoutes);
       }
     } catch (err) {
       console.error("Initialization error:", err);
@@ -156,7 +162,7 @@ export default function RegistrationForm({
     } finally {
       setIsLoading(false);
     }
-  }, [setValue, onDataLoaded, onRegistrationChange]);
+  }, [setValue]);
 
   useEffect(() => {
     loadInitialData();
@@ -638,7 +644,7 @@ export default function RegistrationForm({
                   className="flex h-10 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#0F172A] transition-colors focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="">Select an institutional route...</option>
-                  {routes.map((route) => (
+                  {(Array.isArray(routes) ? routes : []).map((route) => (
                     <option key={route.id} value={route.id}>
                       {route.name}
                     </option>

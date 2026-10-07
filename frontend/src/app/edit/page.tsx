@@ -117,7 +117,7 @@ export default function EditTransportationDetailsPage() {
       }
 
       if (routesJson.success && routesJson.data) {
-        setRoutes(routesJson.data);
+        setRoutes(Array.isArray(routesJson.data) ? routesJson.data : []);
       }
 
       if (regJson.success && regJson.data) {
@@ -643,7 +643,7 @@ export default function EditTransportationDetailsPage() {
                     className="flex h-10 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs sm:text-sm text-[#0F172A] transition-colors focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
                   >
                     <option value="">Select an institutional route...</option>
-                    {routes.map((r) => (
+                    {(Array.isArray(routes) ? routes : []).map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                       </option>

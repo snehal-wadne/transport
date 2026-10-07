@@ -58,7 +58,7 @@ export default function AdminRoutesPage() {
     setIsLoading(true);
     try {
       const data = await apiClient.routes.getAll();
-      setRoutes(data);
+      setRoutes(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load routes");
     } finally {
@@ -159,7 +159,7 @@ export default function AdminRoutesPage() {
 
       {/* ── Routes Grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {routes.map((route) => (
+        {(Array.isArray(routes) ? routes : []).map((route) => (
           <Card key={route.id} className="rounded-2xl border-[#E2E8F0] shadow-xs flex flex-col justify-between">
             <CardHeader className="p-5 pb-3">
               <div className="flex items-center justify-between">
@@ -209,7 +209,7 @@ export default function AdminRoutesPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
                     <MapPin className="size-3.5 text-[#2563EB]" />
-                    Designated Pickup Points ({route.pickupPoints.length})
+                    Designated Pickup Points ({route.pickupPoints?.length || 0})
                   </span>
                   <button
                     type="button"
@@ -224,7 +224,7 @@ export default function AdminRoutesPage() {
                 </div>
 
                 <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                  {route.pickupPoints.map((point, idx) => (
+                  {(route.pickupPoints || []).map((point, idx) => (
                     <div
                       key={point.id}
                       className="flex items-center justify-between rounded-lg bg-white border border-[#E2E8F0] px-3 py-1.5 text-[11px]"

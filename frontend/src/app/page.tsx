@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Header from "@/components/layout/header";
 import RegistrationForm from "@/components/registration/registration-form";
 import type { StudentProfile, TransportRegistrationRecord, TransportRoute } from "@/lib/types";
@@ -19,6 +19,23 @@ export default function HomePage() {
   const [registration, setRegistration] = useState<TransportRegistrationRecord | null>(null);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
 
+  const handleDataLoaded = useCallback(
+    (s: StudentProfile, r: TransportRegistrationRecord | null, rts: TransportRoute[]) => {
+      setStudent(s);
+      setRegistration(r);
+      setRoutes(rts);
+    },
+    []
+  );
+
+  const handleRegistrationChange = useCallback((r: TransportRegistrationRecord | null) => {
+    setRegistration(r);
+  }, []);
+
+  const handleResetRegistration = useCallback(() => {
+    setRegistration(null);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
       {/* ── 1. Portal Header & Student-Only Navigation ─────────────────── */}
@@ -26,20 +43,14 @@ export default function HomePage() {
         student={student}
         registration={registration}
         routes={routes}
-        onResetRegistration={() => setRegistration(null)}
+        onResetRegistration={handleResetRegistration}
       />
 
       {/* ── Main Content Area ─────────────────────────────────────────── */}
       <main className="flex-1 pb-16">
         <RegistrationForm
-          onDataLoaded={(s, r, rts) => {
-            setStudent(s);
-            setRegistration(r);
-            setRoutes(rts);
-          }}
-          onRegistrationChange={(r) => {
-            setRegistration(r);
-          }}
+          onDataLoaded={handleDataLoaded}
+          onRegistrationChange={handleRegistrationChange}
         />
       </main>
 

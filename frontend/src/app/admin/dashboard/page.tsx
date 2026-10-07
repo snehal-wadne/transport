@@ -52,9 +52,9 @@ export default function AdminDashboardPage() {
         apiClient.admin.getAuditLogs(),
       ]);
       setMetrics(m);
-      setPendingRegistrations(regs);
-      setRoutes(rts);
-      setRecentAudits(audits.slice(0, 5));
+      setPendingRegistrations(Array.isArray(regs) ? regs : []);
+      setRoutes(Array.isArray(rts) ? rts : []);
+      setRecentAudits(Array.isArray(audits) ? audits.slice(0, 5) : []);
     } catch {
       toast.error("Failed to fetch administrative metrics");
     } finally {
@@ -359,7 +359,7 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                   <Bus className="size-4 text-[#2563EB]" />
-                  Active Bus Fleet ({routes.length})
+                  Active Bus Fleet ({Array.isArray(routes) ? routes.length : 0})
                 </CardTitle>
                 <Link
                   href="/admin/routes"
@@ -373,7 +373,7 @@ export default function AdminDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 pt-0 space-y-3">
-              {routes.map((rt) => (
+              {(Array.isArray(routes) ? routes : []).map((rt) => (
                 <div
                   key={rt.id}
                   className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs space-y-1"
@@ -390,7 +390,7 @@ export default function AdminDashboardPage() {
                     Bus: <span className="font-mono text-[#0F172A]">{rt.busNumber}</span> • Driver: {rt.driverName}
                   </p>
                   <p className="text-[10px] text-[#2563EB] font-medium">
-                    {rt.pickupPoints.length} Designated Pickup Points
+                    {rt.pickupPoints?.length || 0} Designated Pickup Points
                   </p>
                 </div>
               ))}
@@ -414,7 +414,7 @@ export default function AdminDashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-5 pt-0 space-y-3">
-              {recentAudits.map((a) => (
+              {(Array.isArray(recentAudits) ? recentAudits : []).map((a) => (
                 <div
                   key={a.id}
                   className="border-b border-[#E2E8F0] last:border-0 pb-2.5 last:pb-0 text-xs space-y-0.5"
